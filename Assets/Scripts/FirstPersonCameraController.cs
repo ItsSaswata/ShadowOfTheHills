@@ -3,12 +3,21 @@ using UnityEngine.InputSystem;
 
 public class FirstPersonCameraController : MonoBehaviour
 {
-    [Header("Camera Settings")]
-    [SerializeField] private float sensitivity = 100f;
+    [Header("Sensitivity Settings")]
+    [SerializeField] private float mouseSensitivity = 100f;
+    [SerializeField] private float gamepadSensitivity = 300f;
+
+    [Header("Vertical Clamp")]
     [SerializeField] private float verticalClamp = 60f;
 
+    [Header("Smoothing")]
+    [SerializeField] private float smoothTime = 0.05f;
+
     private PlayerControls controls;
-    private Vector2 lookInput;
+    private Vector2 currentLookInput;
+    private Vector2 smoothVelocity;
+    private Vector2 targetLookInput;
+
     private float xRotation = 0f;
     private Transform playerBody;
 
@@ -16,9 +25,18 @@ public class FirstPersonCameraController : MonoBehaviour
     {
         controls = new PlayerControls();
 
-        // Subscribe to Look input
-        controls.Player.Look.performed += ctx => lookInput = ctx.ReadValue<Vector2>();
-        controls.Player.Look.canceled += _ => lookInput = Vector2.zero;
+        controls.Player.Look.performed += ctx =>
+        {
+            Vector2 rawInput = ctx.ReadValue<Vector2>();
+
+            // Apply sensitivity based on device
+            if (ctx.control.device is Mouse)
+                targetLookInput = rawInput * mouseSensitivity;
+            else if (ctx.control.device is Gamepad)
+                targetLookInput = rawInput * gamepadSensitivity;
+        };
+
+        controls.Player.Look.canceled += _ => targetLookInput = Vector2.zero;
     }
 
     private void OnEnable()
@@ -42,16 +60,18 @@ public class FirstPersonCameraController : MonoBehaviour
 
     private void Update()
     {
-        // Apply input
-        float mouseX = lookInput.x * sensitivity * Time.deltaTime;
-        float mouseY = lookInput.y * sensitivity * Time.deltaTime;
+        // Smooth the input over time
+        currentLookInput = Vector2.SmoothDamp(currentLookInput, targetLookInput, ref smoothVelocity, smoothTime);
 
-        // Rotate camera (pitch)
+        float mouseX = currentLookInput.x * Time.deltaTime;
+        float mouseY = currentLookInput.y * Time.deltaTime;
+
+        // Pitch
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -verticalClamp, verticalClamp);
         transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
 
-        // Rotate player body (yaw)
+        // Yaw
         if (playerBody != null)
             playerBody.Rotate(Vector3.up * mouseX);
     }
