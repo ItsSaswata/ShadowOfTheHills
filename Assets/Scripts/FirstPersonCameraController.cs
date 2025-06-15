@@ -13,6 +13,9 @@ public class FirstPersonCameraController : MonoBehaviour
     [Header("Smoothing")]
     [SerializeField] private float smoothTime = 0.05f;
 
+    // Optional max input delta clamp to prevent spikes
+    [SerializeField] private float maxInputDelta = 200f;
+
     private PlayerControls controls;
     private Vector2 currentLookInput;
     private Vector2 smoothVelocity;
@@ -29,7 +32,7 @@ public class FirstPersonCameraController : MonoBehaviour
         {
             Vector2 rawInput = ctx.ReadValue<Vector2>();
 
-            // Apply sensitivity based on device
+            // Apply sensitivity based on device type
             if (ctx.control.device is Mouse)
                 targetLookInput = rawInput * mouseSensitivity;
             else if (ctx.control.device is Gamepad)
@@ -43,19 +46,23 @@ public class FirstPersonCameraController : MonoBehaviour
     {
         controls.Enable();
         Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     private void OnDisable()
     {
         controls.Disable();
         Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
     private void Start()
     {
         playerBody = transform.parent;
         if (playerBody == null)
+        {
             Debug.LogWarning("FirstPersonCameraController expects to be a child of the player body.");
+        }
     }
 
     private void Update()
@@ -63,16 +70,19 @@ public class FirstPersonCameraController : MonoBehaviour
         // Smooth the input over time
         currentLookInput = Vector2.SmoothDamp(currentLookInput, targetLookInput, ref smoothVelocity, smoothTime);
 
-        float mouseX = currentLookInput.x * Time.deltaTime;
-        float mouseY = currentLookInput.y * Time.deltaTime;
+        // Optionally clamp large deltas to prevent spikes
+        float mouseX = Mathf.Clamp(currentLookInput.x, -maxInputDelta, maxInputDelta);
+        float mouseY = Mathf.Clamp(currentLookInput.y, -maxInputDelta, maxInputDelta);
 
-        // Pitch
+        // Pitch (look up/down)
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -verticalClamp, verticalClamp);
         transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
 
-        // Yaw
+        // Yaw (look left/right)
         if (playerBody != null)
+        {
             playerBody.Rotate(Vector3.up * mouseX);
+        }
     }
 }
