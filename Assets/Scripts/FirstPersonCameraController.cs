@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 public class FirstPersonCameraController : MonoBehaviour
 {
     [Header("Sensitivity Settings")]
+    [Range(0.0f,10.0f)]
     [SerializeField] private float mouseSensitivity = 100f;
     [SerializeField] private float gamepadSensitivity = 300f;
 
